@@ -30,6 +30,7 @@ A Python-based **Banking Service System** to manage customer accounts, enabling 
 
 ---
 <img width="1215" alt="Screenshot 2024-12-17 at 9 50 43 AM" src="https://github.com/user-attachments/assets/5c96443c-6805-4cc1-80dc-3fa1193b14ab" /> 
+
 ### Project Highlights:  
 - Ensuring validation and error handling for accurate operations.  
 - Comprehensive reporting with detailed transaction history and period-based summaries.  
