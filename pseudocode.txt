@@ -1,0 +1,1446 @@
+IMPORT datetime
+
+
+# Application main menu function.
+DEFINE main()
+    SET options TO [
+        'Log In to the system',
+        'Sign In a new customer',
+        'Exit'
+    ]
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        LOOP index IN range(1, 4)
+            IF index == 1 THEN
+                DISPLAY(f'{index} => {options[0]}')
+            ELSEIF index == 2 THEN
+                DISPLAY(f'{index} => {options[1]}')
+            ELSEIF index == 3 THEN
+                DISPLAY(f'{index} => {options[2]}')
+            END IF
+        END LOOP
+        TRY
+            DISPLAY('Please select one option: '))
+            READ selected_option
+            IF selected_option == int('1') THEN
+                 SET logindata TO login()
+                IF logindata[3] == '1' THEN
+                    CALL super_admin_account_options(logindata) 
+                ELSEIF logindata[3] == '2' THEN
+                    CALL admin_stuff_options(logindata) 
+                ELSE
+                    CALL customer_options(logindata)
+                END IF
+            ELSEIF selected_option == int('2') THEN
+                CALL register_customer() 
+            ELSEIF selected_option == int('3') THEN
+                CALL exit_program() 
+            ELSE
+                DISPLAY("\n")
+                DISPLAY('Please choose one of these options:')
+            END IF
+        except ValueError
+            DISPLAY("\n")
+            DISPLAY('Invalid Input! Only numeric va-lue is accepted')
+    END LOOP
+END DEFINE
+
+
+# login page function.
+DEFINE login()
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        DISPLAY("\n")
+        DISPLAY('Please Enter Your ID or Q to RETURN: ')
+        READ userid
+        IF userid.upper() == 'Q' THEN
+            DISPLAY("\n")
+            CALL main()
+        END IF
+        DISPLAY('Please Enter Your Password or Q to RETURN: ')
+        READ userpass
+        IF userpass.upper() == 'Q' THEN
+            DISPLAY("\n")
+            CALL main()
+        END IF
+        SET fh TO open('userpass.txt', 'r')
+        SET foundresult TO 'notfound'
+        LOOP line IN fh
+            SET linelist TO line.strip().split(':')
+            IF linelist[0] == userid and linelist[1] == userpass THEN
+                SET foundresult TO linelist
+                break
+                END LOOP
+        END LOOP
+            END IF
+        fh.close()
+        IF foundresult == 'notfound' THEN
+            DISPLAY('\n')
+            DISPLAY('Invalid Password or Username. Try again!')
+        ELSE
+            DISPLAY("\n")
+            DISPLAY("-----  Welcome to the System -----")
+            RETURN foundresult
+        END IF
+    END LOOP
+END DEFINE
+
+
+# Function for generate Admin ID, Customer ID, and Transaction ID.
+DEFINE genid(perm)
+    WITH open"id.txt" with READ mode as idfh
+        SET rec TO idfh.readline()
+        SET reclist TO rec.strip().split(":")
+    IF perm == "admin" THEN
+        SET pref TO "ADM"
+        SET oldid TO reclist[0][3:]
+    ELSEIF perm == "customer" THEN
+        SET pref TO "CUS"
+        SET oldid TO reclist[1][3:]
+    ELSEIF perm == "trans" THEN
+        SET pref TO "TRN"
+        SET oldid TO reclist[2][3:]
+    SET nextid TO int(oldid) + 1
+    END IF
+    IF len(str(nextid)) == 1 THEN
+        SET newid TO "0000" + str(nextid)
+    ELSEIF len(str(nextid)) == 2 THEN
+        SET newid TO "000" + str(nextid)
+    ELSEIF len(str(nextid)) == 3 THEN
+        SET newid TO "00" + str(nextid)
+    ELSEIF len(str(nextid)) == 4 THEN
+        SET newid TO "0" + str(nextid)
+    ELSEIF len(str(nextid)) == 5 THEN
+        SET newid TO str(nextid)
+    END IF
+    SET newid TO pref + newid
+    IF perm == "admin" THEN
+        SET reclist[0] TO newid
+    ELSEIF perm == 'customer' THEN
+        SET reclist[1] TO newid
+    ELSE
+        SET reclist[2] TO newid
+    END IF
+    SET rec TO ":".join(reclist)
+    WITH open "id.txt", with WRITE mode as fh
+        fh.write(rec)
+    RETURN newid
+
+END DEFINE
+
+
+# Function for getting a unique number for each customer.
+DEFINE get_new_customer()
+    TRY
+        SET file TO open(f"register_customer.txt", "r")
+        SET lines TO file.readlines()
+        file.close()
+        RETURN len(lines) + 1
+    except FileNotFoundError
+        SET file TO open(f"register_customer.txt", "r")
+        file.close()
+        RETURN 1
+END DEFINE
+
+
+# Function for saving customer's detail IN text file.
+DEFINE write_to_file(file, data)
+    SET file TO open(f"{file}.txt", "a")
+    TRY
+        IF type(data) != str THEN
+            file.write(f"{str(data)}\n")
+        END IF
+        file.close()
+        RETURN True
+    EXCEPT
+        file.close()
+        RETURN False
+END DEFINE
+
+
+# Registration form function.
+DEFINE register_customer()
+    DISPLAY("\n")
+    DISPLAY("----------------------------------------------- ")
+    DISPLAY("Fill up the following form or press 'q' to exit ")
+    DISPLAY("----------------------------------------------- ")
+    SET customer_required_information TO [
+        "Name",
+        "Email",
+        "Phone Number",
+        "Date Of Birth (yyyy-mm-dd)",
+        "Gender M/F",
+        "Bank account type you wish to have Saving/Current"
+    ]
+    SET customer_information TO []
+    LOOP information IN customer_required_information
+        DISPLAY(f"Please Enter Your {information}: ")
+        READ ans
+        IF ans.lower() == 'q' THEN
+            CALL main()
+        END IF
+        IF information == 'Phone Number' THEN
+            DO WHILE True
+                IF len(str(ans)) == 10 THEN
+                    break
+                    END LOOP
+                ELSEIF ans.lower() == 'q' THEN
+                    CALL main() 
+                ELSE
+                    DISPLAY('\n')
+                    DISPLAY("Invalid Input! Phone Number 10 min&max (Ex:01123456789): ")
+                    READ ans
+                    END IF
+            END LOOP
+        END IF
+        IF information == 'Date Of Birth (yyyy-mm-dd)' THEN
+            DO WHILE True
+                IF len(str(ans)) == 10 THEN
+                    break
+                    END LOOP
+                ELSEIF ans.lower() == 'q' THEN
+                    CALL main() 
+                ELSE
+                    DISPLAY('\n')
+                    DISPLAY("Invalid Input! Date Of Birth (Ex:yyyy-mm-dd): ")
+                    READ ans
+                END IF
+            END LOOP
+        END IF
+        IF information == 'Gender M/F' THEN
+            DO WHILE True
+                IF ans.lower() == 'm' THEN
+                    break
+                    END LOOP
+                ELSEIF ans.lower() == 'f' THEN
+                    break
+                    END LOOP
+                    END LOOP
+                ELSEIF ans.lower() == 'q' THEN
+                    CALL main() 
+                ELSE
+                    DISPLAY('\n')
+                    DISPLAY("Invalid Input! Please Enter 'M' for male or 'F' for female: ")
+                    READ ans
+                END IF
+            END LOOP
+        IF information == 'Bank account type you wish to have Saving/Current' THEN
+            DO WHILE True
+                IF ans.lower() == 'saving' THEN
+                    break
+                    END LOOP
+                ELSEIF ans.lower() == 'current' THEN
+                    break
+                    END LOOP
+                ELSEIF ans.lower() == 'q' THEN
+                    CALL main() 
+                ELSE
+                    DISPLAY('\n')
+                    DISPLAY('Invalid Input! Please Enter your account type Saving/Current: ')
+                    READ ans
+                END IF
+            END LOOP
+        END IF
+        customer_information.append(ans)
+    END LOOP
+    CALL customer_information.append(get_new_customer()) 
+    CALL write_to_file("register_customer", customer_information) 
+    DISPLAY("\n")
+    DISPLAY('-------------------------------------------------------------------------------')
+    DISPLAY('Your information has been received and is being reviewed by our team, Thank you')
+    DISPLAY('-------------------------------------------------------------------------------')
+    DISPLAY("\n")
+    CALL back_to_menu()
+END DEFINE
+
+
+# Function for going back to main menu.
+DEFINE back_to_menu()
+    SET options TO [
+        'Return to the main menu',
+        'Exit'
+    ]
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        LOOP index IN range(1, 3)
+            IF index == 1 THEN
+                DISPLAY(f'{index} => {options[0]}')
+            ELSEIF index == 2 THEN
+                DISPLAY(f'{index} => {options[1]}')
+            END IF
+        END LOOP
+        TRY
+            DISPLAY('Please select one option: '))
+            READ selected_option
+            IF selected_option == int('1') THEN
+                DISPLAY("\n")
+                CALL main() 
+            ELSEIF selected_option == int('2') THEN
+                CALL exit_program() 
+            ELSE
+                DISPLAY("\n")
+                DISPLAY('Please choose one of these options:')
+            END IF
+        except ValueError
+            DISPLAY('Invalid Input! Only numeric va-lue is accepted')
+            DISPLAY("\n")
+    END LOOP
+END DEFINE
+
+
+# Customer menu function.
+DEFINE customer_options(logindata)
+    SET options TO [
+        'Check Balance',
+        'Perform deposit',
+        "perform withdrawal",
+        "Print bank statement",
+        'Change Password',
+        'Logout'
+    ]
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        DISPLAY("Customer MENU for", logindata[2])
+        DISPLAY('======================================')
+        LOOP index IN range(1, 7)
+            IF index == 1 THEN
+                DISPLAY(f'{index} => {options[0]}')
+            ELSEIF index == 2 THEN
+                DISPLAY(f'{index} => {options[1]}')
+            ELSEIF index == 3 THEN
+                DISPLAY(f'{index} => {options[2]}')
+            ELSEIF index == 4 THEN
+                DISPLAY(f'{index} => {options[3]}')
+            ELSEIF index == 5 THEN
+                DISPLAY(f'{index} => {options[4]}')
+            ELSEIF index == 6 THEN
+                DISPLAY(f'{index} => {options[5]}')
+            END IF
+        END LOOP
+        TRY
+            DISPLAY(INPUT('Please select one option: '))
+            READ selected_option
+            IF selected_option == int('1') THEN
+                CALL check_balance(logindata) 
+            ELSEIF selected_option == int('2') THEN
+                CALL perform_deposit(logindata) 
+            ELSEIF selected_option == int('3') THEN
+                CALL perform_withdrawal(logindata) 
+            ELSEIF selected_option == int('4') THEN
+                CALL bank_statement(logindata) 
+            ELSEIF selected_option == int('5') THEN
+                CALL changepass(logindata) 
+            ELSEIF selected_option == int('6') THEN
+                CALL exit_program() 
+            ELSE
+                DISPLAY("\n")
+                DISPLAY('Please choose one of these options:')
+            END IF
+        except ValueError
+            DISPLAY("\n")
+            DISPLAY('Invalid Input! Only numeric value is accepted')
+    END LOOP
+END DEFINE
+
+
+# Admin staff menu function.
+DEFINE admin_stuff_options(logindata)
+    SET options TO [
+        'Add a new customer account',
+        "Edit customer's info",
+        "DISPLAY bank statement for customer",
+        "Display all users accounts",
+        'Change Password',
+        'Logout'
+    ]
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        DISPLAY("ADMIN MENU for", logindata[2])
+        DISPLAY('======================================')
+        LOOP index IN range(1, 7)
+            IF index == 1 THEN
+                DISPLAY(f'{index} => {options[0]}')
+            ELSEIF index == 2 THEN
+                DISPLAY(f'{index} => {options[1]}')
+            ELSEIF index == 3 THEN
+                DISPLAY(f'{index} => {options[2]}')
+            ELSEIF index == 4 THEN
+                DISPLAY(f'{index} => {options[3]}')
+            ELSEIF index == 5 THEN
+                DISPLAY(f'{index} => {options[4]}')
+            ELSEIF index == 6 THEN
+                DISPLAY(f'{index} => {options[5]}')
+            END IF
+        END LOOP
+        TRY
+            DISPLAY('Please select one option: '))
+            READ selected_option
+            IF selected_option == int('1') THEN
+                CALL add_customer_account() 
+            ELSEIF selected_option == int('2') THEN
+                CALL edit_customer_info(logindata) 
+            ELSEIF selected_option == int('3') THEN
+                CALL cus_bank_statement(logindata) 
+            ELSEIF selected_option == int('4') THEN
+                CALL display_users() 
+            ELSEIF selected_option == int('5') THEN
+                CALL changepass(logindata) 
+            ELSEIF selected_option == int('6') THEN
+                CALL exit_program() 
+            ELSE
+                DISPLAY("\n")
+                DISPLAY('Please choose one of these options:')
+            END IF
+        except ValueError
+            DISPLAY("\n")
+            DISPLAY('Invalid Input! Only numeric value is accepted')
+    END LOOP
+END DEFINE
+
+
+# Super admin account menu function.
+DEFINE super_admin_account_options(logindata)
+    SET options TO [
+        'Create an admin staff account',
+        'Create a customer account',
+        "Edit customer's info",
+        'DISPLAY a bank statement for the customer',
+        'Display all users accounts',
+        'Change Password',
+        'Logout'
+    ]
+    SET keep_asking TO True
+    DO WHILE keep_asking
+        DISPLAY("SUPER ADMIN MENU for", logindata[2])
+        DISPLAY('======================================')
+        LOOP index IN range(1, 8)
+            IF index == 1 THEN
+                DISPLAY(f'{index} => {options[0]}')
+            ELSEIF index == 2 THEN
+                DISPLAY(f'{index} => {options[1]}')
+            ELSEIF index == 3 THEN
+                DISPLAY(f'{index} => {options[2]}')
+            ELSEIF index == 4 THEN
+                DISPLAY(f'{index} => {options[3]}')
+            ELSEIF index == 5 THEN
+                DISPLAY(f'{index} => {options[4]}')
+            ELSEIF index == 6 THEN
+                DISPLAY(f'{index} => {options[5]}')
+            ELSEIF index == 7 THEN
+                DISPLAY(f'{index} => {options[6]}')
+            END IF
+        END LOOP
+        TRY
+            DISPLAY('Please select one option: '))
+            READ selected_option
+            IF selected_option == int('1') THEN
+                CALL add_admin_account() 
+            ELSEIF selected_option == int('2') THEN
+                CALL add_customer_account() 
+            ELSEIF selected_option == int('3') THEN
+                CALL edit_customer_info(logindata) 
+            ELSEIF selected_option == int('4') THEN
+                CALL cus_bank_statement(logindata) 
+            ELSEIF selected_option == int('5') THEN
+                CALL display_users() 
+            ELSEIF selected_option == int('6') THEN
+                CALL changepass(logindata) 
+            ELSEIF selected_option == int('7') THEN
+                CALL exit_program() 
+            ELSE
+                DISPLAY("\n")
+                DISPLAY('Please choose one of these options:')
+            END IF
+        except ValueError
+            DISPLAY("\n")
+            DISPLAY('Invalid Input! Only numeric value is accepted')
+    END LOOP
+END DEFINE
+
+
+# Function fpr changing password.
+DEFINE changepass(logindata)
+    SET allrec TO []
+    WITH open"userpass.txt" with READ mode as fh
+        LOOP rec IN fh
+            SET reclist TO rec.strip().split(":")
+            allrec.append(reclist)
+        END LOOP
+    DISPLAY('\n')
+    SET ind TO -1
+    SET nor TO len(allrec)
+    LOOP cnt IN range(0, nor)
+        IF logindata[0] == allrec[cnt][0] THEN
+            SET ind TO cnt
+            break
+            END LOOP
+        END IF
+    END LOOP
+    DIAPLAY('Please Enter Current Password: ')
+    READ conpassword
+    DISPLAY("Please Enter New Password: ")
+    READ newpass
+    IF conpassword == allrec[ind][1] THEN
+        SET allrec[ind][1] TO newpass
+        WITH open "userpass.txt"  with WRITE mode as fh
+            SET nor TO len(allrec)
+            LOOP cnt IN range(0, nor)
+                SET rec TO ":".join(allrec[cnt]) + "\n"
+                fh.write(rec)
+            END LOOP
+            DISPLAY('\n')
+            DISPLAY('======================================')
+            DISPLAY('Password Has Been Successfully Changed ')
+            DISPLAY('======================================')
+    ELSE
+        DISPLAY('\n')
+        DISPLAY('====================================================================')
+        DISPLAY('We cannot change your password! Your current password is incorrect. ')
+        DISPLAY('====================================================================')
+    END IF
+    DO WHILE True
+        DISPLAY('\n')
+        DISPLAY('1 => Go back to the menu ')
+        DISPLAY('2 => Logout ')
+        DISPLAY('Please choose one of these options: ')
+        READ selected_option
+        IF selected_option == '1' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        ELSEIF selected_option == '2' THEN
+            CALL exit_program() 
+        END IF
+    END LOOP
+END DEFINE
+
+
+# Function for Displaying statement for a customer.
+DEFINE cus_bank_statement(logindata)
+    DO WHILE True
+        SET nor TO 0
+        SET allrec TO []
+        DISPLAY("Please enter customer ID or press 'q' to RETURN: ")
+        READ cusid
+        IF cusid == 'q' THEN
+            DISPLAY('\n')
+            CALL admin_stuff_options(logindata)
+
+        WITH open "transaction.txt" with READ mode as fh
+            LOOP line IN fh
+                allrec.append(line.strip().split(":"))
+            END LOOP
+        LOOP cnt IN range(0, len(allrec))
+            IF cusid == allrec[cnt][1] THEN
+                SET nor TO 0
+                nor += 1
+                DO WHILE True
+                    DO WHILE True
+                        SDISPLAY('Please Enter Start Date (yyyy-mm-dd): ')
+                        READ strdate
+                        IF strdate == 'q' THEN
+                            DISPLAY('\n')
+                            CALL admin_stuff_options(logindata)
+                        END IF
+                        IF len(str(strdate)) == 10 THEN
+                            break
+                            END LOOP
+                        ELSE:
+                            DISPLAY('\n')
+                            DISPLAY("Please Enter the correct format or 'q' to go back (yyyy-mm-dd)")
+                        END IF
+                    END LOOP
+                    DO WHILE True:
+                        DISPLAY('Please Enter End Date (yyyy-mm-dd): ')
+                        READ enddate
+                        IF enddate == 'q' THEN
+                            DISPLAY('\n')
+                            CALL admin_stuff_options(logindata)
+                        END IF
+                        IF len(str(enddate)) == 10 THEN
+                            break
+                            END LOOP
+                        ELSE
+                            DISPLAY('\n')
+                            DISPLAY("Please Enter the correct format or 'q' to go back (yyyy-mm-dd)")
+                        END IF
+                    END LOOP
+                    SET nor TO 0
+                    DISPLAY("=" * 105)
+                    DISPLAY(
+                        "NOR".center(7) + "|" + "Transaction ID".ljust(18) + "|" + "Customer ID".ljust(
+                            15) + "|" + "Trans Type".center(15)
+                        + "|" + "Trans Amount".center(15) + "|" + "Date".center(15) + "|" + "Time".center(14))
+                    DISPLAY("=" * 105)
+                    LOOP cnt IN range(0, len(allrec))
+                        IF strdate <= allrec[cnt][4] and enddate >= allrec[cnt][4] THEN
+                            IF (cusid == allrec[cnt][1]) THEN
+                                nor += 1
+                                DISPLAY(str(nor).center(7) + "|" + allrec[cnt][0].ljust(18) + "|" + allrec[cnt][1].ljust(
+                                    15) + "|" +
+                                      allrec[cnt][2].center(15)
+                                      + "|" + allrec[cnt][3].center(15) + "|" + allrec[cnt][4].center(15) + "|" + (
+                                              allrec[cnt][5] + ":" + allrec[cnt][6]).center(15))
+                            END IF
+                        END IF
+                    END LOOP
+                    DISPLAY('\n\n')
+                    IF nor == 0 THEN
+                        DISPLAY('Record Not found'.center(100))
+                        DISPLAY('\n')
+                    END IF
+                    DO WHILE True
+                        DISPLAY('Would you like to try another date? y/n: ')
+                        READ user_selection
+                        IF user_selection.lower() == 'y' THEN
+                            break
+                            END LOOP
+                        ELSEIF user_selection.lower() == 'n' THEN
+                            CALL admin_stuff_options(logindata) 
+                        ELSE
+                    END LOOP
+                END LOOP
+            END IF          DISPLAY('\n')
+        END LOOP
+        END IF              DISPLAY("Invalid Input, please enter 'y' LOOP yes or 'n' LOOP no!")
+                        END IF
+        IF nor == 0 THEN
+            DISPLAY('----------------')
+            DISPLAY('Record Not found')
+            DISPLAY('----------------')
+        END IF
+END DEFINE
+
+
+# Function for displaying all user account.
+DEFINE display_users()
+    WITH open "userpass.txt" with WRITE mode as fh
+        DISPLAY("=" * 60)
+        DISPLAY("Usre ID".center(10) + "|" + "User Password".center(14) + "|" + "User Name".center(
+            17) + "|" + "Account Type")
+        DISPLAY("=" * 60)
+        LOOP rec IN fh
+            SET reclist TO rec.strip().split(":")
+            IF reclist[3] == '1' THEN
+                SET reclist[3] TO 'Super account'
+                SET reclist[1] TO 'Hidden'
+            ELSEIF reclist[3] == '2' THEN
+                SET reclist[3] TO 'Admin account'
+            ELSEIF reclist[3] == '3' THEN
+                SET reclist[3] TO 'Customer account'
+            DISPLAY(reclist[0].ljust(10) + "|" + reclist[1].ljust(14) + "|" + reclist[2].ljust(17) + "|" + reclist[
+                3].center(12))
+            END IF
+        END LOOP
+    DISPLAY("\n\n")
+    DO WHILE True
+        DISPLAY('1 => Go back to the menu ')
+        DISPLAY('2 => Logout ')
+        DISPLAY('Please choose one of these options: ')
+        READ selected_option
+        IF selected_option == '1' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        ELSEIF selected_option == '2' THEN
+            CALL exit_program() 
+        END IF
+    END LOOP
+END DEFINE
+
+
+# Function for editing customer info.
+DEFINE edit_customer_info(logindata)
+    SET break_out_flag TO False
+    DO WHILE True
+        SET allrec TO []
+        DISPLAY("Please enter customer ID or press 'q' to RETURN: ")
+        READ cusid
+        IF cusid == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        WITH open customers_information.txt" with WRITE mode as fh
+            LOOP line IN fh
+                allrec.append(line.strip().split(":"))
+            END LOOP
+        LOOP cnt IN range(0, len(allrec))
+            IF cusid == allrec[cnt][0] THEN
+                SET options TO [
+                    "Email",
+                    "Phone",
+                    "Date Of Birth",
+                    "Gender M/F",
+                    "Bank Account Type Saving/Current",
+                    "Account Balance",
+                    "Go back to the main menu"
+                ]
+                SET keep_asking TO True
+                DO WHILE keep_asking
+                    IF break_out_flag THEN
+                        DO WHILE True
+                            DISPLAY('\n')
+                            DISPLAY('1 => Go back to tha main menu ')
+                            DISPLAY('2 => Logout ')
+                            DISPLAY('Please choose one of these options: ')
+                            READ selected_option
+                            IF selected_option == '1' THEN
+                                DISPLAY('\n')
+                                break
+                                END LOOP
+                            ELSEIF selected_option == '2' THEN
+                                CALL exit_program()
+                            END IF
+                        END LOOP
+                    END IF
+                    DISPLAY('\n')
+                    DISPLAY('Edit info for:', allrec[cnt][1])
+                    DISPLAY('------------------------------')
+                    LOOP index IN range(1, 8)
+                        IF break_out_flag THEN
+                            break
+                            END LOOP
+                        END IF
+                        IF index == 1 THEN
+                            DISPLAY(f'{index} => {options[0]}')
+                        ELSEIF index == 2 THEN
+                            DISPLAY(f'{index} => {options[1]}')
+                        ELSEIF index == 3 THEN
+                            DISPLAY(f'{index} => {options[2]}')
+                        ELSEIF index == 4 THEN
+                            DISPLAY(f'{index} => {options[3]}')
+                        ELSEIF index == 5 THEN
+                            DISPLAY(f'{index} => {options[4]}')
+                        ELSEIF index == 6 THEN
+                            DISPLAY(f'{index} => {options[5]}')
+                        ELSEIF index == 7 THEN
+                            DISPLAY(f'{index} => {options[6]}')
+                        END IF
+                    END LOOP
+                    TRY
+                        IF break_out_flag THEN
+                            break
+                            END LOOP
+                        END IF
+                        DISPLAY('Please select what you would like to edit: '))
+                        READ selected_option
+                        IF selected_option == int('1') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current email:', allrec[cnt][2])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY('Please Enter New Email: ')
+                                    READ newemaill
+                                    SET allrec[cnt][2] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE THEN
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('2') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current Phone:', allrec[cnt][3])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    DO WHILE True
+                                        DISPLAY('\n')
+                                        DISPLAY('1 => Go back to tha main menu ')
+                                        DISPLAY('2 => Logout ')
+                                        DISPLAY ('Please choose one of these options: ')
+                                        READ selected_option
+                                        IF selected_option == '1' THEN
+                                            DISPLAY('\n')
+                                            break
+                                            END LOOP
+                                        ELSEIF selected_option == '2' THEN
+                                            CALL exit_program()
+                                        END IF
+                                    END LOOP
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY ('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY ('Please Enter New Phone: ')
+                                    READ newemaill
+                                    SET allrec[cnt][3] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE THEN
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('3') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current Date Of Birth:', allrec[cnt][4])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY('Please Enter New Date Of Birth yyyy/mm/dd?: ')
+                                    READ newemaill
+                                    SET allrec[cnt][4] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE THEN
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('4') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current Gender:', allrec[cnt][5])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY('Please Enter New Gender M/F?: ')
+                                    READ newemaill
+                                    SET allrec[cnt][5] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE THEN
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('5') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current Bank Account Type:', allrec[cnt][6])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY ('Please Enter New Bank Account Type Saving/Current: ')
+                                    READ newemaill
+                                    SET allrec[cnt][6] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('6') THEN
+                            DISPLAY('---------------------------------------')
+                            DISPLAY('This is Current Account Balance:', allrec[cnt][7])
+                            DISPLAY('---------------------------------------')
+                            DO WHILE True
+                                IF break_out_flag THEN
+                                    break
+                                    END LOOP
+                                END IF
+                                DISPLAY('Are you sure you would like to edit it? y/n: ')
+                                READ conformation
+                                IF conformation.lower() == 'y' THEN
+                                    DISPLAY ('Please Enter New Account Balance: ')
+                                    READ newemaill
+                                    SET allrec[cnt][7] TO newemaill
+                                    WITH open customers_information.txt" with WRITE mode as fh
+                                        SET nor TO len(allrec)
+                                        LOOP cnt IN range(0, nor)
+                                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                                            fh.write(rec)
+                                        END LOOP
+                                        DISPLAY('\n')
+                                        DISPLAY('===================================')
+                                        DISPLAY('Info have Been Successfully Changed')
+                                        DISPLAY('===================================')
+                                        SET break_out_flag TO True
+                                        break
+                                        END LOOP
+                                ELSEIF conformation.lower() == 'n' THEN
+                                    break
+                                    END LOOP
+                                ELSE
+                                    DISPLAY('\n')
+                                    DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+                                END IF
+                            END LOOP
+                        ELSEIF selected_option == int('7') THEN
+                            break
+                            END LOOP
+                        ELSE
+                            DISPLAY("\n")
+                            DISPLAY('Please choose one of these options:')
+                        END IF
+                    except ValueError
+                        DISPLAY("\n")
+                END LOOP
+            END IF            DISPLAY('Invalid Input! Only numeric value is accepted')
+        END LOOP
+        ELSE
+            IF break_out_flag THEN
+                break
+                END LOOP
+            DISPLAY('=====================')
+            DISPLAY('Customer ID Not Found')
+            DISPLAY('=====================')
+            DO WHILE True
+                DISPLAY('\n')
+                DISPLAY('1 => Search Again ')
+                DISPLAY('2 => Go back to tha main menu ')
+                DISPLAY('3 => Logout ')
+                DISPLAY('Please choose one of these options: ')
+                READ selected_option
+                IF selected_option == '1' THEN
+                    DISPLAY('\n')
+                    break
+                    END LOOP
+                END IF
+                IF selected_option == '2' THEN
+                    DISPLAY('\n')
+                    CALL admin_stuff_options(logindata) 
+                ELSEIF selected_option == '3' THEN
+                    CALL exit_program() 
+                END IF
+            END LOOP
+    END LOOP
+END DEFINE
+
+
+# Function for checking customer balance.
+DEFINE check_balance(logindata)
+    SET allrec TO []
+    WITH open "customers_information.txt" with READ mode as fh
+        LOOP line IN fh
+            allrec.append(line.strip().split(":"))
+        END LOOP
+    LOOP cnt IN range(0, len(allrec))
+        IF (logindata[0] == allrec[cnt][0]) THEN
+            DISPLAY('\n')
+            DISPLAY('=============================')
+            DISPLAY('Your Current balance is:', allrec[cnt][7])
+            DISPLAY('=============================')
+            DO WHILE True
+                DISPLAY('\n')
+                DISPLAY('1 => Go back to the menu ')
+                DISPLAY('2 => Logout ')
+                DISPLAY ('Please choose one of these options: ')
+                selected_option
+                IF selected_option == '1' THEN
+                    DISPLAY('\n')
+                    break
+                    END LOOP
+                ELSEIF selected_option == '2' THEN
+                    CALL exit_program()
+            END LOOP
+        END IF
+    END LOOP
+END DEFINE
+
+
+# Function for performing deposit.
+DEFINE perform_deposit(logindata)
+    DO WHILE True
+        DISPLAY('Please enter your deposit amount: '))
+        READ chkamnt
+        IF chkamnt < 50 THEN
+            DISPLAY('\n')
+            DISPLAY('-> The deposit amount should be more or equal than 50 ')
+            continue
+        ELSEIF chkamnt >= 50 THEN
+            break
+            END LOOP
+        ELSE
+            DISPLAY('Invalid Input! Only numeric value is accepted')
+            continue
+        END IF
+    END LOOP
+    SET allrec TO []
+    WITH open "customers_information.txt", with READ mode as fh
+        LOOP line IN fh
+            SET reclist TO line.strip().split(":")
+            allrec.append(reclist)
+        END LOOP
+    SET nor TO len(allrec)
+    LOOP cnt IN range(0, nor)
+        IF (logindata[0] == allrec[cnt][0]) THEN
+            SET cusid TO allrec[cnt][0]
+            SET transid TO genid('trans')
+            SET oldamnt TO (allrec[cnt][7])
+            SET depamnt TO str(chkamnt)
+            SET addamnt TO int(oldamnt) + int(depamnt)
+            SET newamnt TO str(addamnt)
+            SET transtype TO 'Deposit'
+            SET curdate TO datetime.date.today()
+            SET curtime TO datetime.datetime.now()
+            SET date TO str(curdate)
+            SET time TO str(curtime.strftime("%H:%M"))
+            SET ind TO cnt
+            WITH open "transaction.txt" with APPEND mode as fh
+                SET rec TO transid + ":" + cusid + ":" + transtype + ":" + depamnt + ":" + date + ":" + time + "\n"
+                fh.write(rec)
+            WITH open "customers_information.txt" with WRITE mode as fh
+                SET rec TO allrec[ind][7] TO newamnt
+                SET nor TO len(allrec)
+                LOOP cnt IN range(0, nor)
+                    SET rec TO ":".join(allrec[cnt]) + "\n"
+                    fh.write(rec)
+                END LOOP
+        END IF
+    END LOOP
+    DISPLAY('\n')
+    DISPLAY('============================================')
+    DISPLAY('Transaction Has Been Successfully Processed ')
+    DISPLAY('============================================')
+    DO WHILE True
+        DISPLAY('\n')
+        DISPLAY('1 => Go back to the menu ')
+        DISPLAY('2 => Logout ')
+        SET selected_option TO INPUT('Please choose one of these options: ')
+        IF selected_option == '1' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        ELSEIF selected_option == '2' THEN
+            CALL exit_program()
+        END IF
+    END LOOP
+END DEFINE
+
+
+# Function for performing withdrawal.
+DEFINE perform_withdrawal(logindata)
+    DO WHILE True THEN
+        DISPLAY(INPUT('Please enter your withdrawal amount: '))
+        READ chkamnt
+        IF chkamnt < 50 THEN
+            DISPLAY('\n')
+            DISPLAY('-> The withdrawal amount should be more or equal than 50  ')
+            continue
+        ELSEIF chkamnt >= 50 THEN
+            break
+            END LOOP
+        ELSE
+            DISPLAY('Invalid Input! Only numeric value is accepted')
+            continue
+        END IF
+    END LOOP
+    SET allrec TO []
+    WITH open "customers_information.txt"  with READ mode as fh
+        LOOP line IN fh
+            SET reclist TO line.strip().split(":")
+            allrec.append(reclist)
+        END LOOP
+    SET nor TO len(allrec)
+    LOOP cnt IN range(0, nor)
+        IF (logindata[0] == allrec[cnt][0]):
+            SET cusid TO allrec[cnt][0]
+            SET accnttype TO (allrec[cnt][6])
+            SET oldamnt TO (allrec[cnt][7])
+            SET withamnt TO str(chkamnt)
+            SET dedamnt TO int(oldamnt) - int(withamnt)
+            SET transtype TO 'Withdrawal'
+            SET curdate TO datetime.date.today()
+            SET curtime TO datetime.datetime.now()
+            SET date TO str(curdate)
+            SET time TO str(curtime.strftime("%H:%M"))
+            IF accnttype.lower() == 'saving' THEN
+                IF int(dedamnt) >= 100 THEN
+                    SET transid TO genid('trans')
+                    SET newamnt TO str(dedamnt)
+                    SET ind TO cnt
+                    WITH open "transaction.txt" with APPEND mode as fh
+                        SET rec TO transid + ":" + cusid + ":" + transtype + ":" + withamnt + ":" + date + ":" + time + "\n"
+                        fh.write(rec)
+                    WITH open "customers_information.txt" with WRITE mode as fh
+                        SET rec TO allrec[ind][7] TO newamnt
+                        SET nor TO len(allrec)
+                        LOOP cnt IN range(0, nor)
+                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                            fh.write(rec)
+                        END LOOP
+                        DISPLAY('\n')
+                        DISPLAY('============================================')
+                        DISPLAY('Transaction Has Been Successfully Processed ')
+                        DISPLAY('============================================')
+                        DISPLAY('\n')
+                ELSEIF int(dedamnt) <= 100 THEN
+                    DISPLAY('\n')
+                    DISPLAY('=========================================================')
+                    DISPLAY('We are sorry, withdrawal will affect the minimum balance ')
+                    DISPLAY('=========================================================')
+                END IF
+            ELSEIF accnttype.lower() == 'current' THEN
+                IF int(dedamnt) >= 500 THEN
+                    SET transid TO genid('trans')
+                    SET newamnt TO str(dedamnt)
+                    SET ind TO cnt
+                    WITH open "transaction.txt" with APPEND mode as fh
+                        SET rec TO transid + ":" + cusid + ":" + transtype + ":" + withamnt + ":" + date + ":" + time + "\n"
+                        fh.write(rec)
+                    WITH open "customers_information.txt" with WRITE mode as fh
+                        SET rec TO allrec[ind][7] TO newamnt
+                        SET nor TO len(allrec)
+                        LOOP cnt IN range(0, nor)
+                            SET rec TO ":".join(allrec[cnt]) + "\n"
+                            fh.write(rec)
+                        END LOOP
+                        DISPLAY('\n')
+                        DISPLAY('============================================')
+                        DISPLAY('Transaction Has Been Successfully Processed ')
+                        DISPLAY('============================================')
+                        DISPLAY('\n')
+                ELSEIF int(dedamnt) <= 500 THEN
+                    DISPLAY('\n')
+                    DISPLAY('=========================================================')
+                    DISPLAY('We are sorry, withdrawal will affect the minimum balance ')
+                    DISPLAY('=========================================================')
+                END IF
+            END IF
+            DO WHILE True THEN
+                DISPLAY('1 => Go back to the menu ')
+                DISPLAY('2 => Logout ')
+                DISPLAY('Please choose one of these options: ')
+                READ selected_option
+                IF selected_option == '1' THEN
+                    DISPLAY('\n')
+                    break
+                    END LOOP
+                ELSEIF selected_option == '2' THEN
+                    CALL exit_program()
+                END IF
+            END LOOP
+        END IF
+END DEFINE
+
+
+# Function for displaying statement.
+DEFINE bank_statement(logindata)
+    SET allrec TO []
+    DO WHILE True
+        DO WHILE True
+            DISPLAY('Please Enter Start Date (yyyy-mm-dd): ')
+            READ strdate
+            IF strdate == 'q' THEN
+                DISPLAY('\n')
+                CALL customer_options(logindata)
+            END IF
+            IF len(str(strdate)) == 10 THEN
+                break
+                END LOOP
+            ELSE
+                DISPLAY('\n')
+                DISPLAY("Please Enter the correct format or 'q' to go back (yyyy-mm-dd)")
+            END IF
+        END LOOP
+        DO WHILE True
+            DISPLAY('Please Enter End Date (yyyy-mm-dd): ')
+            READ enddate
+            IF enddate == 'q' THEN
+                DISPLAY('\n')
+                CALL customer_options(logindata)
+            END IF
+            IF len(str(enddate)) == 10 THEN
+                break
+                END LOOP
+            ELSE
+                DISPLAY('\n')
+                DISPLAY("Please Enter the correct format or 'q' to go back (yyyy-mm-dd)")
+            END IF
+        END LOOP
+        SET nor TO 0
+        WITH open "transaction.txt" with READ mode as fh
+            LOOP line IN fh
+                allrec.append(line.strip().split(":"))
+            END LOOP
+        DISPLAY("=" * 105)
+        DISPLAY(
+            "NOR".center(7) + "|" + "Transaction ID".ljust(18) + "|" + "Customer ID".ljust(
+                15) + "|" + "Trans Type".center(15)
+            + "|" + "Trans Amount".center(15) + "|" + "Date".center(15) + "|" + "Time".center(14))
+        DISPLAY("=" * 105)
+        LOOP cnt IN range(0, len(allrec))
+            IF strdate <= allrec[cnt][4] and enddate >= allrec[cnt][4] THEN
+                IF (logindata[0] == allrec[cnt][1]) THEN
+                    nor += 1
+                    DISPLAY(str(nor).center(7) + "|" + allrec[cnt][0].ljust(18) + "|" + allrec[cnt][1].ljust(15) + "|" +
+                          allrec[cnt][2].center(15)
+                          + "|" + allrec[cnt][3].center(15) + "|" + allrec[cnt][4].center(15) + "|" + (
+                                  allrec[cnt][5] + ":" + allrec[cnt][6]).center(15))
+                END IF
+            END IF
+        END LOOP
+        DISPLAY('\n\n')
+        IF nor == 0 THEN
+            DISPLAY('Record Not found'.center(100))
+        END IF
+        DO WHILE True
+            DISPLAY('Would you like to try another date? y/n: ')
+            READ user_selection
+            IF user_selection.lower() == 'y' THEN
+                break
+                END LOOP
+            ELSEIF user_selection.lower() == 'n' THEN
+                CALL customer_options(logindata) 
+            ELSE
+                DISPLAY('\n')
+                DISPLAY("Invalid Input, please enter 'y' for yes or 'n' for no!")
+            END IF
+        END LOOP
+    END LOOP
+END DEFINE
+
+
+# Function For adding new customer accounts.
+DEFINE add_customer_account()
+    SET break_out_flag TO False
+    DISPLAY('\n')
+    DISPLAY("----------------------------------------------- ")
+    DISPLAY("Fill up the following form or press 'q' to exit ")
+    DISPLAY("----------------------------------------------- ")
+    DO WHILE True
+        IF break_out_flag THEN
+            break
+            END LOOP
+        END IF
+        DISPLAY("Please enter customer name: ")
+        READ usrname
+        IF usrname == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        DISPLAY ('Please enter the Email: ')
+        READ emaiL
+        IF email == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        DISPLAY('Please enter the Phone: ')
+        READ usrname
+        IF usrname == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        DISPLAY ('Please enter the Date Of Birth yyyy-mm-dd: ')
+        READ usrname
+        IF usrname == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        DISPLAY('Please enter the Gander M/F: ')
+        READ usrname
+        IF usrname == 'q' THEN
+            DISPLAY('\n')
+            break
+            END LOOP
+        END IF
+        DISPLAY('Please enter the account type Saving/Current: ')
+        READ account
+        SET balance TO '0'
+        IF account.lower() == 'saving' THEN
+            SET balance TO '100'
+        ELSEIF account.lower() == 'current' THEN
+            SET balance TO '500'
+        END IF
+        SET acctype TO "3"
+        SET userid TO genid("customer")
+        DISPLAY('\n')
+        DISPLAY('===================================')
+        DISPLAY('Account has Been Successfully Added')
+        DISPLAY('===================================')
+        SET userpass TO userid
+        DISPLAY('-> '"User ID :", userid)
+        DISPLAY('-> '"User Password:", userpass)
+        DISPLAY('-> '"User Name:", usrname)
+        WITH open "userpass.txt" with APPEND mode as fh
+            SET rec TO userid + ":" + userpass + ":" + usrname + ":" + acctype + "\n"
+            fh.write(rec)
+        WITH open "customers_information.txt" with APPEND mode as fh
+            SET rec TO userid + ":" + usrname + ":" + email + ":" + phone \
+                  + ":" + birthdate + ":" + gander + ":" + account.lower() + ":" + balance + "\n"
+            fh.write(rec)
+        DO WHILE True
+            DISPLAY('\n')
+            DISPLAY('1 => Go back to the menu ')
+            DISPLAY('2 => Logout ')
+            DISPLAY('Please choose one of these options: ')
+            READ selected_option
+            IF selected_option == '1' THEN
+                SET break_out_flag TO True
+                DISPLAY('\n')
+                break
+                END LOOP
+                END DO
+            ELSEIF selected_option == '2' THEN
+                CALL exit_program()
+            END IF
+        END LOOP
+    END LOOP
+END DEFINE
+
+
+# Function for adding new admin staff accounts.
+DEFINE add_admin_account()
+    SET break_out_flag TO False
+    DO WHILE True
+        IF break_out_flag THEN
+            break
+            END LOOP
+        END IF
+        DISPLAY('\n')
+        DISPLAY("Please enter admin name or 'q' to RETURN: ")
+        READ usrname
+        IF usrname.lower() == 'q' THEN
+            break
+            END LOOP
+        END IF
+        SET acctype TO "2"
+        DISPLAY('\n')
+        SET userid TO genid("admin")
+        SET userpass TO userid
+        DISPLAY('===================================')
+        DISPLAY('Account has Been Successfully Added')
+        DISPLAY('===================================')
+        DISPLAY("-> User ID :", userid)
+        DISPLAY("-> User Password:", userpass)
+        DISPLAY("-> User Name:", usrname)
+        WITH open "userpass.txt" with APPEND mode as fh:
+            SET rec TO userid + ":" + userpass + ":" + usrname + ":" + acctype + "\n"
+            fh.write(rec)
+        DO WHILE True
+            DISPLAY('\n')
+            DISPLAY('1 => Go back to the menu ')
+            DISPLAY('2 => Logout ')
+            DISPLAY('Please choose one of these options: ')
+            READ selected_option
+            IF selected_option == '1' THEN
+                DISPLAY('\n')
+                SET break_out_flag TO True
+                break
+                END LOOP
+            ELSEIF selected_option == '2' THEN
+                CALL exit_program() 
+            END IF
+        END LOOP
+    END LOOP
+END DEFINE
+
+
+# Function for exiting the program.
+DEFINE exit_program()
+    DISPLAY("""
+#############################################
+#     Thanks For Using Our Bank System      #
+#############################################
+""")
+    exit()
+END DEFINE
+
+
+# Function for displaying a welcome message.
+DEFINE welcome()
+    DISPLAY("""
+#############################################
+#       Welcome to our Bank System          #
+#############################################
+""")
+END DEFINE
+
+CALL welcome() 
+
+main()
+
